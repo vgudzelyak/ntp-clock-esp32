@@ -1,4 +1,4 @@
-// Data file for user example user defined fonts
+// Data file for user example user-defined fonts
 #ifndef FONTDATA_H
 #define FONTDATA_H
 
