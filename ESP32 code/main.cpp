@@ -7,7 +7,7 @@
 #include <time.h>
 #include <esp_sntp.h>
 
-#include "Font_Data.h"
+#include "font_data.h"
 
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES 4
