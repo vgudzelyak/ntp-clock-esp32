@@ -31,7 +31,7 @@ String ntpServer = "";
 int colonMode = 1;
 bool showSeconds = false;
 int dayBrightness = 5;
-int nightBrightness = 3;
+int nightBrightness = 2;
 
 IPAddress local_ip(192, 168, 50, 1);
 IPAddress gateway(192, 168, 50, 1);
@@ -39,6 +39,11 @@ IPAddress subnet(255, 255, 255, 0);
 
 bool isApMode = false;
 unsigned long lastTimeUpdate = 0;
+unsigned long ntpSyncInterval = 86400000;
+
+int lastNtpSyncYday = -1;
+int lastDayBrightnessSetYday = -1;
+int lastNightBrightnessSetYday = -1;
 
 const char HTML_PAGE[] = 
 R"rawliteral(
@@ -281,13 +286,13 @@ R"rawliteral(
       </div>
 
       <h4><label>Night Brightness (starting at 22:00):</label></h4>
-      <input type="hidden" name="brightNight" id="brightnight-hidden-value" value="3">
+      <input type="hidden" name="brightNight" id="brightnight-hidden-value" value="2">
       <div class="custom-select-container">
-        <div class="select-box" id="brightnight-select-trigger" tabindex="0">Level 3</div>
+        <div class="select-box" id="brightnight-select-trigger" tabindex="0">Level 2</div>
         <div class="select-options" id="brightnight-options-list">
           <div class="option-item" data-value="1">Level 1</div>
-          <div class="option-item" data-value="2">Level 2</div>
-          <div class="option-item highlighted" data-value="3">Level 3</div>
+          <div class="option-item highlighted" data-value="2">Level 2</div>
+          <div class="option-item" data-value="3">Level 3</div>
           <div class="option-item" data-value="4">Level 4</div>
           <div class="option-item" data-value="5">Level 5</div>
           <div class="option-item" data-value="6">Level 6</div>
@@ -411,13 +416,54 @@ void handleSave() {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Settings Saved</title>
   <style>
-      body { font-family: Arial, sans-serif; background: #f4f4f9; color: #333; text-align: center; padding: 20px; }
-      .card { background: white; max-width: 350px; margin: 0 auto; padding: 20px; border-radius: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-      .success-icon { font-size: 48px; color: #ff6f00; }
-      button { background: #ff6f00; color: white; padding: 10px; margin-top: 6px; margin-bottom: 10px; border: none; border-radius: 20px; width: 30%; font-size: 16px; font-weight: bold; cursor: pointer; }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f9;
+        color: #333;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .card {
+        background: white;
+        max-width: 350px;
+        margin: 0 auto;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+
+      .success-icon {
+        font-size: 48px;
+        color: #ff6f00;
+      }
+
+      button {
+        background: #ff6f00;
+        color: white;
+        padding: 10px;
+        margin-top: 6px;
+        margin-bottom: 10px;
+        border: none;
+        border-radius: 20px;
+        width: 30%;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
       button:hover { background: #c15400; }
-      h2 { color: #303030; margin-top: 0; }
-      p { color: #505050; font-size: 15px; line-height: 1.6; }
+
+      h2 {
+        color: #303030;
+        margin-top: 0;
+      }
+
+      p {
+        color: #505050;
+        font-size: 15px;
+        line-height: 1.6;
+      }
   </style>
   </head>
   <body>
@@ -447,14 +493,14 @@ void setup() {
   colonMode = preferences.getInt("colon");
   showSeconds = preferences.getBool("secs");
   dayBrightness = preferences.getInt("brightDay", 5);
-  nightBrightness = preferences.getInt("brightNight");
+  nightBrightness = preferences.getInt("brightNight", 2);
   preferences.end();
 
   myDisplay.begin();
   myDisplay.displayClear();
   myDisplay.setZone(0, 0, 3);
   myDisplay.setTextAlignment(PA_CENTER);
-  myDisplay.setIntensity(dayBrightness);
+  myDisplay.setIntensity(5);
 
   if (ssid != "") {
     WiFi.mode(WIFI_STA);
@@ -479,8 +525,9 @@ void setup() {
     myDisplay.print("WiFi on");
     delay(2000);
     myDisplay.print("Syncing");
-    sntp_set_sync_interval(86400000);
     configTzTime(timeZone.c_str(), ntpServer.c_str());
+    sntp_set_sync_interval(ntpSyncInterval);
+    sntp_restart();
     delay(2000);
     myDisplay.begin(4);
   }
@@ -494,7 +541,15 @@ void setup() {
     myDisplay.setZone(0, 0, 3);
     myDisplay.setFont(0, numeric7Se);
   }
-  myDisplay.setIntensity(dayBrightness);
+
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    if (timeinfo.tm_hour >= 6 && timeinfo.tm_hour < 22) {
+      myDisplay.setIntensity(dayBrightness);
+    } else {
+      myDisplay.setIntensity(nightBrightness);
+    }
+  }
 }
 
 void loop() {
@@ -545,16 +600,19 @@ void loop() {
         char timeStr[9];
         char secStr[4];
 
-        if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) {
+        if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_yday != lastNtpSyncYday) {
           sntp_restart();
+          lastNtpSyncYday = timeinfo.tm_yday;
         }
         
-        if (timeinfo.tm_hour == 6 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) {
+        if (timeinfo.tm_hour == 6 && timeinfo.tm_min == 0 && timeinfo.tm_yday != lastDayBrightnessSetYday) {
           myDisplay.setIntensity(dayBrightness);
+          lastDayBrightnessSetYday = timeinfo.tm_yday;
         }
 
-        if (timeinfo.tm_hour == 22 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) {
+        if (timeinfo.tm_hour == 22 && timeinfo.tm_min == 0 && timeinfo.tm_yday != lastNightBrightnessSetYday) {
           myDisplay.setIntensity(nightBrightness);
+          lastNightBrightnessSetYday = timeinfo.tm_yday;
         }
 
         char colonChar = ' ';
