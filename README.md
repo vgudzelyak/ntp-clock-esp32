@@ -6,7 +6,6 @@ A Wi-Fi clock built on an **ESP32-C3 PLUS** and a **4 segments 8x8 MAX7219 LED m
 
 - [Features](#features)
 - [Hardware](#hardware)
-- [Repository structure](#repository-structure)
 - [3D-printed enclosure](#3d-printed-enclosure)
 - [Wiring](#wiring)
 - [Flashing with the Arduino IDE](#flashing-with-the-arduino-ide)
@@ -39,23 +38,10 @@ A Wi-Fi clock built on an **ESP32-C3 PLUS** and a **4 segments 8x8 MAX7219 LED m
 | 5 jumper wires | Display connection |
 | 3D-printed enclosure | Housing, back cover and button, see [3D-printed enclosure](#3d-printed-enclosure) |
 
+As a color filter I used transparent green [binding covers](https://rozetka.com.ua/ua/d_a_art_1220102020400/p24951457/) that were inserted into the groove of the housing. 5 pieces measuring 133 mm x 34 mm should be enough to cover the white dots of the LED matrix.
+
 > [!WARNING]
 > **Use a 5V-only power supply.** If you power the clock from an external USB charger or adapter, it must supply a plain **5V**. Do **not** use chargers or cables that negotiate higher voltages, such as **USB Power Delivery (PD 3.0)** or other quick-charge standards (Qualcomm Quick Charge, etc.). Higher voltages can permanently damage the ESP32-C3 PLUS board and the display module. A standard 5V USB adapter (for example 5V / 2A) is enough.
-
-## Repository structure
-
-```
-ntp-clock-esp32/
-├── 3D models/
-│   ├── Clock.3mf               Print-ready project (PrusaSlicer) with all three parts
-│   ├── Clock_housing.STL       Front housing
-│   ├── Clock_back_cover.STL    Back cover
-│   └── Clock_button.STL        Button
-├── ESP32 code/
-│   ├── main.cpp      Firmware (clock logic, web server, settings)
-│   └── Font_Data.h   Custom digit fonts for the display
-└── LICENSE           GPL-3.0
-```
 
 ## 3D-printed enclosure
 
@@ -69,29 +55,13 @@ The `3D models` folder contains a three-part enclosure for the display and the E
 
 `Clock.3mf` is a ready-to-slice PrusaSlicer project that already contains all three parts laid out on the bed. Use the individual `.STL` files if you prefer another slicer.
 
-### Print settings used
-
-These are the settings stored in `Clock.3mf` (PrusaSlicer 2.9.7). They are a good starting point, but adjust them for your printer and material.
-
-| Setting | Value |
-|---------|-------|
-| Filament | PETG |
-| Nozzle | 0.4 mm |
-| Layer height | 0.2 mm (0.28 mm first layer) |
-| Perimeters | 3 |
-| Top / bottom solid layers | 3 / 3 |
-| Infill | 20 %, grid |
-| Supports | Enabled (organic, auto-generated) |
-| Brim | 5 mm, outer only, on the housing |
-| Nozzle / bed temperature | 235 °C / 80 °C |
-
 ## Wiring
 
-The display uses the pins defined at the top of `main.cpp`:
+The display uses the pins defined at the top of `ntp_clock.ino`:
 
 | MAX7219 module | ESP32-C3 PLUS |
 |----------------|---------------|
-| `VCC` | 5 V |
+| `VCC` | 5V |
 | `GND` | GND |
 | `DIN` | GPIO 6 |
 | `CS` | GPIO 7 |
@@ -132,12 +102,7 @@ If the Library Manager offers to install dependencies for MD_Parola, choose **In
 
 ### 4. Prepare the sketch
 
-The firmware is stored as `main.cpp`, but the Arduino IDE expects a sketch folder containing a `.ino` file with the same name as the folder (and no spaces in the name). So:
-
-1. Create a new folder, for example `ntp_clock`.
-2. Copy `main.cpp` into it and **rename it to `ntp_clock.ino`**.
-3. Copy `Font_Data.h` into the same folder.
-4. Open `ntp_clock.ino` in the Arduino IDE. `Font_Data.h` appears as a second tab.
+Open `ntp_clock.ino` in the Arduino IDE. `font_data.h` appears as a second tab.
 
 ### 5. Select the board and port
 
@@ -157,7 +122,7 @@ The firmware is stored as `main.cpp`, but the Arduino IDE expects a sketch folde
 
 1. Click **Verify** (✓) to compile.
 2. Click **Upload** (→).
-3. When the IDE reports **Done uploading**, press the **RESET** button or re-plug the USB cable. The display should show **`Setup`**, which means the clock is ready for configuration.
+3. When the IDE reports **Done uploading**, the display should show **`Setup`**, which means the clock is ready for configuration.
 
 ### If the board is not detected or the upload fails
 
@@ -281,13 +246,11 @@ If you release the button before 3 seconds, the clock simply restarts and the se
 ## Customizing the firmware
 
 - **Different pins:** change `CLK_PIN`, `DATA_PIN` and `CS_PIN`.
-- **Different module count:** change `MAX_DEVICES` (the layout code assumes 4).
-- **Different hardware type:** change `HARDWARE_TYPE` if your module is not FC16 (e.g. `MD_MAX72XX::GENERIC_HW`, `PAROLA_HW`).
 - **Access point name and password:** edit the `WiFi.softAP("NTPClock-Setup", "12345678")` line, since the default password is public.
 - **Access point address:** edit `local_ip`, `gateway` and `subnet`.
 - **Additional time zones:** add a new `<div class="option-item" data-value="…">` entry to the time zone list in `HTML_PAGE`, using a [POSIX TZ string](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv).
 - **Brightness switching times:** the 06:00 and 22:00 switch times are set in `setup()` and `loop()`.
-- **Digit shapes:** edit `Font_Data.h`. `numeric7Se` holds the `HH:MM` digits and `numeric7Seg` the narrower digits used for seconds.
+- **Digit shapes:** edit `font_data.h`. `numeric7Se` holds the `HH:MM` digits and `numeric7Seg` the narrower digits used for seconds.
 
 ## License
 

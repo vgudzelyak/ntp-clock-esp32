@@ -505,6 +505,7 @@ void setup() {
   if (ssid != "") {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
     
     unsigned long startAttemptTime = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
