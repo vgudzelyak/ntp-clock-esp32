@@ -20,6 +20,10 @@ MD_Parola myDisplay = MD_Parola(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DE
 const int BOOT_BUTTON_PIN = 9;
 unsigned long buttonPressStart = 0;
 bool isButtonPressed = false;
+const unsigned long DEBOUNCE_MS = 50;
+int lastRawState = HIGH;
+unsigned long lastRawChange = 0;
+int stableState = HIGH;
 
 WebServer server(80);
 Preferences preferences;
@@ -44,6 +48,9 @@ unsigned long ntpSyncInterval = 86400000;
 int lastNtpSyncYday = -1;
 int lastDayBrightnessSetYday = -1;
 int lastNightBrightnessSetYday = -1;
+
+char timeStr[9];
+char secStr[4];
 
 const char HTML_PAGE[] = 
 R"rawliteral(
@@ -483,7 +490,7 @@ void handleSave() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
 
   preferences.begin("clock-cfg", true);
   ssid = preferences.getString("ssid");
@@ -554,7 +561,18 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(BOOT_BUTTON_PIN) == LOW) {
+  int raw = digitalRead(BOOT_BUTTON_PIN);
+
+  if (raw != lastRawState) {
+    lastRawState = raw;
+    lastRawChange = millis();
+  }
+
+  if (millis() - lastRawChange >= DEBOUNCE_MS) {
+    stableState = raw;
+  }
+
+  if (stableState == LOW) {
     
     if (!isButtonPressed) {
       isButtonPressed = true;
@@ -598,9 +616,6 @@ void loop() {
 
       struct tm timeinfo;
       if (getLocalTime(&timeinfo)) {
-        char timeStr[9];
-        char secStr[4];
-
         if (timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_yday != lastNtpSyncYday) {
           sntp_restart();
           lastNtpSyncYday = timeinfo.tm_yday;
